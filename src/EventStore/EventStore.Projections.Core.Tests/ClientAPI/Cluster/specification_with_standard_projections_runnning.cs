@@ -40,6 +40,7 @@ using EventStore.Core;
 using EventStore.Core.Bus;
 using EventStore.Core.Tests;
 using EventStore.Core.Tests.Helpers;
+using EventStore.Core.Tests.Services.Storage.DeletingStream;
 using EventStore.Projections.Core.Services.Processing;
 using NUnit.Framework;
 using ResolvedEvent = EventStore.ClientAPI.ResolvedEvent;
@@ -107,7 +108,6 @@ namespace EventStore.Projections.Core.Tests.ClientAPI.Cluster
                 _nodeEndpoints[0], new IPEndPoint[] {_nodeEndpoints[1].InternalHttp, _nodeEndpoints[2].InternalHttp});
             _nodes[1] = CreateNode(1, 
                 _nodeEndpoints[1], new IPEndPoint[] { _nodeEndpoints[0].InternalHttp, _nodeEndpoints[2].InternalHttp });
-            
             _nodes[2] = CreateNode(2, 
                 _nodeEndpoints[2], new IPEndPoint[] { _nodeEndpoints[0].InternalHttp, _nodeEndpoints[1].InternalHttp });
             
@@ -118,7 +118,14 @@ namespace EventStore.Projections.Core.Tests.ClientAPI.Cluster
 
             WaitHandle.WaitAll(new[] { _nodes[0].StartedEvent, _nodes[1].StartedEvent, _nodes[2].StartedEvent });
             QueueStatsCollector.WaitIdle();
-            _conn = EventStoreConnection.Create(_nodes[0].ExternalTcpEndPoint);
+            _conn = EventStoreConnection.Create(
+                ConnectionSettings.Default,
+                ClusterSettings.Create()
+                    .SetClusterDns("localhost")
+                    .WithGossipSeeds(
+                        new IPEndPoint[]
+                        {_nodeEndpoints[0].InternalHttp, _nodeEndpoints[1].InternalHttp, _nodeEndpoints[2].InternalHttp}));
+
             _conn.Connect();
 
             _manager = new ProjectionsManager(new ConsoleLogger(), _nodes[0].ExternalHttpEndPoint);
@@ -327,7 +334,8 @@ namespace EventStore.Projections.Core.Tests.ClientAPI.Cluster
         [Test]
         public void Test()
         {
-            Assert.Inconclusive();
+            PostEvent("a", "b", "c");
+            AssertStreamTail("a", "b:c");
         }
     }
 }

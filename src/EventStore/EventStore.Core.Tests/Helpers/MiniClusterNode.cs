@@ -39,6 +39,7 @@ using EventStore.Common.Utils;
 using EventStore.Core.Authentication;
 using EventStore.Core.Bus;
 using EventStore.Core.Cluster.Settings;
+using EventStore.Core.Data;
 using EventStore.Core.Messages;
 using EventStore.Core.Services.Gossip;
 using EventStore.Core.Services.Monitoring;
@@ -140,7 +141,12 @@ namespace EventStore.Core.Tests.Helpers
 
             StartedEvent = new ManualResetEvent(false);
             Node.MainBus.Subscribe(
-                new AdHocHandler<SystemMessage.SystemStart>(m => StartedEvent.Set()));
+                new AdHocHandler<SystemMessage.StateChangeMessage>(
+                    m =>
+                    {
+                        if (m.State == VNodeState.Master || m.State == VNodeState.Slave) 
+                            StartedEvent.Set();
+                    }));
 
             Node.Start();
 
